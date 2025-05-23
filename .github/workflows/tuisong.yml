@@ -6,7 +6,7 @@ on:
       files_to_sync:
         description: 'Files/directories to sync (comma-separated, e.g., src/app.js,config/settings.json,assets)'
         required: true
-        default: 'build/Immortalwrt/settings.ini'
+        default: 'build/Immortalwrt/settings.ini,build/Immortalwrt/diy-part.sh,build/Immortalwrt/seed/x86_64,build/Immortalwrt/diy/package/base-files/files/etc/banner,build/Lede/diy-part.sh,build/Lede/settings.ini,build/Lede/diy/package/base-files/files/etc/banner'
       target_repo_owner:
         description: 'Owner of the target repository B (your organization name)'
         required: true
