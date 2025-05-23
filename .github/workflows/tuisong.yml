@@ -1,4 +1,4 @@
-name: Sync Files to Repository B
+name: 推送备份
 
 on:
   workflow_dispatch: # 允许手动触发
