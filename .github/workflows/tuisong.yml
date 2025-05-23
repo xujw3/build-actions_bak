@@ -1,0 +1,84 @@
+name: Sync Files to Repository B
+
+on:
+  workflow_dispatch: # 允许手动触发
+    inputs:
+      files_to_sync:
+        description: 'Files/directories to sync (comma-separated, e.g., src/app.js,config/settings.json,assets)'
+        required: true
+        default: 'build/Immortalwrt/settings.ini'
+      target_repo_owner:
+        description: 'Owner of the target repository B (your organization name)'
+        required: true
+        default: 'xujw-org'
+      target_repo_name:
+        description: 'Name of the target repository B'
+        required: true
+        default: 'build-actions_raw'
+      target_branch:
+        description: 'Branch in repository B to push to'
+        required: true
+        default: 'main' # 或者你的默认分支，例如 master
+      commit_message:
+        description: 'Commit message for the changes in repository B'
+        required: false
+        default: '推送备份文件'
+
+jobs:
+  sync_files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository A (Source)
+        uses: actions/checkout@v4
+        with:
+          path: repo-a # 将 A 仓库 checkout到 repo-a 目录
+
+      - name: Checkout Repository B (Target)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.target_repo_owner }}/${{ github.event.inputs.target_repo_name }}
+          token: ${{ secrets.REPO_B_PAT }} # 需要在 A 仓库的 Secrets 中配置 REPO_B_PAT
+          path: repo-b # 将 B 仓库 checkout到 repo-b 目录
+          ref: ${{ github.event.inputs.target_branch }}
+
+      - name: Prepare files to sync
+        run: |
+          echo "Files to sync: ${{ github.event.inputs.files_to_sync }}"
+          # 将逗号分隔的字符串转换为数组
+          IFS=',' read -ra ADDR <<< "${{ github.event.inputs.files_to_sync }}"
+          for item in "${ADDR[@]}"; do
+            item_trimmed=$(echo "$item" | xargs) #去除可能存在的前后空格
+            if [ -z "$item_trimmed" ]; then
+              continue
+            fi
+            source_path="repo-a/$item_trimmed"
+            target_path="repo-b/$item_trimmed"
+
+            if [ ! -e "$source_path" ]; then
+              echo "⚠️ Warning: Source path '$source_path' does not exist in repository A. Skipping."
+              continue
+            fi
+
+            echo "Syncing '$source_path' to '$target_path'..."
+            # 创建目标目录 (如果不存在)
+            mkdir -p "$(dirname "$target_path")"
+            # 复制文件或目录，覆盖目标
+            cp -R "$source_path" "$target_path"
+          done
+        shell: bash
+
+      - name: Commit and Push to Repository B
+        run: |
+          cd repo-b
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          # 检查是否有文件更改
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit in repository B."
+          else
+            git add .
+            git commit -m "${{ github.event.inputs.commit_message }}"
+            git push origin ${{ github.event.inputs.target_branch }}
+            echo "Successfully pushed changes to ${{ github.event.inputs.target_repo_owner }}/${{ github.event.inputs.target_repo_name }} branch ${{ github.event.inputs.target_branch }}"
+          fi
+        shell: bash
